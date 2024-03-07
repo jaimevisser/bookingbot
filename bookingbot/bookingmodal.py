@@ -6,16 +6,16 @@ class BookingModal(discord.ui.Modal):
 
         self.__ext_callback = ext_callback
         self.add_item(
-            discord.ui.InputText(label="Meta username", value=initial_values.get("meta_username"))
+            discord.ui.InputText(label="Ghosts of Tabor username", value=initial_values.get("got_username"))
         )
         self.add_item(
-            discord.ui.InputText(label="Ghosts of Tabor username", value=initial_values.get("got_username"))
+            discord.ui.InputText(label="Meta username", value=initial_values.get("meta_username"), required=False)
         )
 
     async def callback(self, interaction: discord.Interaction):
         booking_data = {
-            "meta_username": self.children[0].value.strip(),
-            "got_username": self.children[1].value.strip(),
+            "meta_username": self.children[1].value.strip(),
+            "got_username": self.children[0].value.strip(),
         }
 
         await self.__ext_callback(

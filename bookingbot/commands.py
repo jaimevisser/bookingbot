@@ -66,7 +66,7 @@ class Commands(Cog):
     
     @timeslots.command(name="add")
     async def add(self, ctx: discord.ApplicationContext, timeslot: str):
-        """Add a timeslot."""
+        """Add a timeslot. Use `HH:MM` for today or `DD/MM HH:MM` for a specific date."""
         # Get the user ID
         user_id = ctx.author.id
 
@@ -118,7 +118,7 @@ class Commands(Cog):
         
     @timeslots.command(name="list")
     async def list_timeslots(self, ctx: discord.ApplicationContext, boa: Option(User) = None):
-        """Command to list all timeslots."""
+        """Command to list all timeslots. If a user is provided, list their timeslots."""
         # Get all timeslots
         if boa is not None:
             all_timeslots = self.timeslots.list(boa.id)
@@ -139,11 +139,11 @@ class Commands(Cog):
         message = ""
         for timeslot in timeslots:
             # Add the timeslot to the message with discord timestamp and instructor tag
-            message += f"- `{timeslot['id']}` <t:{int(timeslot['time'])}:f> (BOA: <@{timeslot['instructor']}>)"
+            message += f"- ID:`{timeslot['id']}` <t:{int(timeslot['time'])}:f> (BOA: <@{timeslot['instructor']}>)"
             # If the timeslot is booked, add the booking information
             if timeslot.get("booking"):
                 booking = timeslot["booking"]
-                message += f" - Booked by <@{booking['user_id']}> (Meta: `{booking['meta_username']}`, GOT: `{booking['got_username']}`)"
+                message += f" - Booked by <@{booking['user_id']}> (GOT: `{booking['got_username']}`, Meta: `{booking['meta_username']}`)"
             message += "\n"
         return message
         
@@ -156,8 +156,25 @@ class Commands(Cog):
         # Send a confirmation message
         await ctx.respond("Timeslot removed.", ephemeral=True)
         
+    @slash_command(name="timeslots")
+    async def timeslots_open(self, ctx: discord.ApplicationContext):
+        """List all open timeslots."""
+        # Get all timeslots
+        all_timeslots = self.timeslots.list_open()
+        # Sort timeslots by time ascending
+        all_timeslots.sort(key=lambda x: x["time"])
+        # If there are no timeslots, send a message
+        if not all_timeslots:
+            await ctx.respond("There are no timeslots available.", ephemeral=True)
+            return
+        # Create a formatted message with the timeslots
+        message = "Timeslots:\n" + self.render_timeslots(all_timeslots)
+        # Send the message
+        await ctx.respond(message, ephemeral=True)
+        
     @slash_command()
     async def book(self, ctx: discord.ApplicationContext, timeslot_id: str = None):
+        """Book a timeslot. If no timeslot ID is provided, list all available timeslots."""
         # If the user already has a booking, don't allow them to book another timeslot
         user_id = ctx.author.id
         if self.timeslots.has_booking(user_id):
@@ -166,13 +183,7 @@ class Commands(Cog):
         
         # If the timeslot ID is not provided, list all available timeslots
         if timeslot_id is None:
-            timeslots = self.timeslots.list_open()
-            if not timeslots:
-                await ctx.respond("There are no timeslots available.", ephemeral=True)
-                return
-            message = "Available timeslots:\n" + self.render_timeslots(timeslots)
-            message += "\n\nUse `/book <timeslot_id>` to book a timeslot."
-            await ctx.respond(message, ephemeral=True)
+            self.timeslots_open()
             return
                
         # If the timeslot does not exist, send an error message
@@ -193,6 +204,11 @@ class Commands(Cog):
             success = self.timeslots.book(timeslot_id, booking_data)
             if success:
                 await interaction.response.send_message("Timeslot booked successfully.", ephemeral=True)
+                
+                #Send a message to a specific discord channel when a timeslot is booked
+                channel = self.bot.get_channel(1215223888854917121)  # Replace with your channel ID
+                await channel.send(f"Timeslot booked by <@{user_id}>: {booking_data['meta_username']}, {booking_data['got_username']}")
+                
             else:
                 await interaction.response.send_message("Failed to book timeslot", ephemeral=True)
 

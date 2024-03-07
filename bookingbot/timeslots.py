@@ -48,7 +48,7 @@ class Timeslots:
             if timeslot["id"] == timeslot_id and not timeslot.get("booking"):
                 timeslot["booking"] = booking_data
                 self.timeslots.sync()
-                return True
+                return timeslot
         return False
     
     def exists(self, timeslot_id: str):
