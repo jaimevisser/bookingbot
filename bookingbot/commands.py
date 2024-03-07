@@ -135,7 +135,7 @@ class Commands(Cog):
         # Send the message
         await ctx.respond(message, ephemeral=True)
         
-    def render_timeslots(self, timeslots):
+    def render_timeslots(self, timeslots, ping_instructor=False):
         message = ""
         for timeslot in timeslots:
             # Add the timeslot to the message with discord timestamp and instructor tag
@@ -143,7 +143,7 @@ class Commands(Cog):
             # If the timeslot is booked, add the booking information
             if timeslot.get("booking"):
                 booking = timeslot["booking"]
-                message += f" - Booked by <@{booking['user_id']}> (GOT: `{booking['got_username']}`, Meta: `{booking['meta_username']}`)"
+                message += f" - Booked by <@{booking['user_id']}> (GOT: `{booking['got_username']}`, Meta: `{booking['meta_username'] or "N/A"}`)"
             message += "\n"
         return message
         
@@ -201,13 +201,13 @@ class Commands(Cog):
         async def callback(interaction: discord.Interaction, booking_data: dict):
             booking_data["user_id"] = user_id
             # Book the timeslot using the provided meta and GOT usernames
-            success = self.timeslots.book(timeslot_id, booking_data)
-            if success:
+            timeslot = self.timeslots.book(timeslot_id, booking_data)
+            if timeslot:
                 await interaction.response.send_message("Timeslot booked successfully.", ephemeral=True)
                 
                 #Send a message to a specific discord channel when a timeslot is booked
                 channel = self.bot.get_channel(1215223888854917121)  # Replace with your channel ID
-                await channel.send(f"Timeslot booked by <@{user_id}>: {booking_data['meta_username']}, {booking_data['got_username']}")
+                await channel.send(f"Timeslot booked: \n" + self.render_timeslots([timeslot], ping_instructor=True))
                 
             else:
                 await interaction.response.send_message("Failed to book timeslot", ephemeral=True)
