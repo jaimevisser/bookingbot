@@ -1,2 +1,2 @@
-# midibot
-A bot for storing midi files
+# Bookingbot
+A bot for booking appointments
