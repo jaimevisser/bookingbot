@@ -183,7 +183,7 @@ class Commands(Cog):
         
         # If the timeslot ID is not provided, list all available timeslots
         if timeslot_id is None:
-            self.timeslots_open()
+            await self.timeslots_open(ctx)
             return
                
         # If the timeslot does not exist, send an error message
