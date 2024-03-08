@@ -9,7 +9,7 @@ class BookingModal(discord.ui.Modal):
             discord.ui.InputText(label="Ghosts of Tabor username", value=initial_values.get("got_username"))
         )
         self.add_item(
-            discord.ui.InputText(label="Meta username", value=initial_values.get("meta_username"), required=False)
+            discord.ui.InputText(label="Meta username (if using meta party voice)", value=initial_values.get("meta_username"), required=False)
         )
 
     async def callback(self, interaction: discord.Interaction):
