@@ -49,7 +49,7 @@ class Commands(Cog):
             str, "Your timezone", required=True, autocomplete=autocomplete_timezone
         ),
     ):
-        """Set your timezone."""
+        """Set your timezone. Use the autocomplete to find your timezone."""
         # Get the user ID
         user_id = ctx.author.id
 
@@ -143,7 +143,7 @@ class Commands(Cog):
             # If the timeslot is booked, add the booking information
             if timeslot.get("booking"):
                 booking = timeslot["booking"]
-                message += f" - Booked by <@{booking['user_id']}> (GOT: `{booking['got_username']}`, Meta: `{booking['meta_username'] or "N/A"}`)"
+                message += f" - Booked by <@{booking['user_id']}> (GOT: `{booking['got_username']}`, Meta: `{booking['meta_username'] or 'N/A'}`)"
             message += "\n"
         return message
         
