@@ -135,7 +135,7 @@ class Commands(Cog):
         # Send the message
         await ctx.respond(message, ephemeral=True)
         
-    def render_timeslots(self, timeslots, ping_instructor=False):
+    def render_timeslots(self, timeslots: list):
         message = ""
         for timeslot in timeslots:
             # Add the timeslot to the message with discord timestamp and instructor tag
@@ -207,7 +207,7 @@ class Commands(Cog):
                 
                 #Send a message to a specific discord channel when a timeslot is booked
                 channel = self.bot.get_channel(1215223888854917121)  # Replace with your channel ID
-                await channel.send(f"Timeslot booked: \n" + self.render_timeslots([timeslot], ping_instructor=True))
+                await channel.send(f"Timeslot booked: \n" + self.render_timeslots([timeslot]))
                 
             else:
                 await interaction.response.send_message("Failed to book timeslot", ephemeral=True)
