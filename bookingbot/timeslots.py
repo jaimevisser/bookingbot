@@ -35,6 +35,7 @@ class Timeslots:
     
     def remove(self, timeslot_id: str):
         self.timeslots.data = [timeslot for timeslot in self.timeslots.data if timeslot["id"] != timeslot_id]
+        self.__cleanup()
         self.timeslots.sync()
         
     def has_booking(self, user_id: str):
