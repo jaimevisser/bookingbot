@@ -198,7 +198,7 @@ class Commands(Cog):
             # If the timeslot is booked, add the booking information
             if timeslot.get("booking"):
                 booking = timeslot["booking"]
-                message += f" - Booked by <@{booking['user_id']}> (GOT: `{booking['got_username']}`, Meta: `{booking['meta_username'] or 'N/A'}`)"
+                message += f" - Booked by <@{booking['user_id']}> (GOT: `{booking['got_username']}`, Meta: `{booking['meta_username'] or 'N/A'}`, timestamp: `<t:{int(timeslot['time'])}:f>`)"
             message += "\n"
         return message
         
