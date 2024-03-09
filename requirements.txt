@@ -5,3 +5,4 @@ pyyaml~=6.0
 requests==2.31.0
 aiohttp==3.9.3
 asynctest~=0.13.0
+babel==2.14.0

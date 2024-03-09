@@ -1,27 +1,29 @@
 import logging
 import os
 import random
+import re
 import shutil
 import string
 from typing import Union
 import uuid
+from babel import Locale
 import pytz
 import datetime
 
 import discord
 
-from bookingbot import Store, Timeslots, BookingModal
+from bookingbot import Timeslots, BookingModal
 from discord import Cog, Option, Permissions, User, guild_only, slash_command
 from discord.commands import default_permissions
 
+from bookingbot.settings import Settings
 
 _log = logging.getLogger(__name__)
-
 
 class Commands(Cog):
     
     def __init__(self, bot):
-        self.timezones = Store[dict](f"data/timezones.json", {})
+        self.settings = Settings()
         self.timeslots = Timeslots()
         self.bot = bot
         
@@ -31,8 +33,17 @@ class Commands(Cog):
         default_member_permissions=Permissions(administrator=True),
         guild_ids=[1215223314151374849])
     
+    settings = discord.SlashCommandGroup(
+        name="set",
+        description="User settings",
+        default_member_permissions=Permissions(administrator=True),
+        guild_ids=[1215223314151374849])
+    
     async def autocomplete_timezone(self, ctx: discord.AutocompleteContext):
         return [tz for tz in pytz.all_timezones if ctx.value.lower() in tz.lower()][:25]
+    
+    async def autocomplete_locales(self, ctx: discord.AutocompleteContext):
+        return [Locale("en").territories[locale] for locale in Locale("en").territories if ctx.value.lower() in Locale("en").territories[locale].lower()][:25]
     
     def generate_identifier(self):
         """Generate a random 5 character identifier excluding 'o', 'O', and '0'."""
@@ -40,8 +51,7 @@ class Commands(Cog):
         characters = characters.replace('o', '').replace('O', '').replace('0', '')
         return ''.join(random.choices(characters, k=5))
 
-    @slash_command()
-    @guild_only()
+    @settings.command(name="timezone")
     async def set_timezone(
         self,
         ctx: discord.ApplicationContext,
@@ -57,21 +67,46 @@ class Commands(Cog):
         selected_timezone = timezone
 
         # Save the timezone for the user
-        self.timezones.data[str(user_id)] = selected_timezone
-        self.timezones.sync()
+        self.settings.set_timezone(user_id, selected_timezone)
 
         # Send a confirmation message
         await ctx.respond(f"Your timezone has been set to {selected_timezone}.", ephemeral=True)
         
+    def get_territory_code(self, name):
+        locale = Locale('en')
+        reverse_territories = {v: k for k, v in locale.territories.items()}
+        return reverse_territories.get(name)
+
+    @settings.command(name="locale")
+    async def set_locale(
+        self,
+        ctx: discord.ApplicationContext,
+        locale: Option(
+            str, "Your locale", required=True, autocomplete=autocomplete_locales
+        ),
+    ):
+        """Set your locale. Use the autocomplete to find your locale."""
+        # Get the user ID
+        user_id = ctx.author.id
+
+        # Get the selected locale
+        selected_locale = self.get_territory_code(locale)
+
+        # Save the locale for the user
+        self.settings.set_locale(user_id, selected_locale)
+
+        # Send a confirmation message
+        await ctx.respond(f"Your locale has been set to {selected_locale}.", ephemeral=True)
+        
     
     @timeslots.command(name="add")
     async def add(self, ctx: discord.ApplicationContext, timeslot: str):
-        """Add a timeslot. Use `HH:MM` for today or `DD/MM HH:MM` for a specific date."""
+        """Add a timeslot. Use `HH:MM`  for today or `DATE HH:MM` for a specific date."""
         # Get the user ID
         user_id = ctx.author.id
 
         # Get the user's timezone
-        user_timezone = self.timezones.data.get(str(user_id))
+        user_timezone = self.settings.get_timezone(str(user_id))
 
         # If the user has not set their timezone, send an error message
         if not user_timezone:
@@ -80,27 +115,37 @@ class Commands(Cog):
 
         # Get the current time in the user's timezone
         current_time = pytz.utc.localize(datetime.datetime.utcnow()).astimezone(pytz.timezone(user_timezone))
-
-        # Parse the timeslot
+        
+        # Parse the timeslot using a regex
+        # The timeslot can be in the format HH:MM or DATE HH:MM
+        # DATE format is DD/MM or MM/DD, depending on the user's locale
+        month_first = self.settings.is_month_first(user_id)
+        
         try:
-            if ":" in timeslot and "/" not in timeslot:
-                # HH:MM format
-                hour, minute = map(int, timeslot.split(":"))
-                start_time = current_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
-                if start_time < current_time:
-                    # Add a day if the timeslot is earlier than now
-                    start_time += datetime.timedelta(days=1)
-            else:
-                # DD/MM HH:MM format
-                date, time = timeslot.split(" ")
-                day, month = date.split("/")
-                hour, minute = map(int, time.split(":"))
-                start_time = current_time.replace(day=int(day), month=int(month), hour=hour, minute=minute, second=0, microsecond=0)
+            regex = r"((\d{1,2})[/-](\d{1,2}) )?(\d{1,2}):?(\d{2})"
+            date, day, month, hour, minute = re.match(regex, timeslot).groups()
+            
+            # Swap day and month if the user's locale uses the month first
+            if month_first:
+                day, month = month, day
+                
+            start_time = current_time.replace(hour=int(hour), minute=int(minute), second=0, microsecond=0)
+            if start_time < current_time:
+                # Add a day if the timeslot is earlier than now
+                start_time += datetime.timedelta(days=1)
+            
+            # If the date is provided, set the date and month  
+            if date:
+                start_time = start_time.replace(day=int(day), month=int(month))
                 if start_time < current_time:
                     # Add a year if the date is before today
                     start_time = start_time.replace(year=current_time.year + 1)
         except (ValueError, IndexError):
-            await ctx.respond("Invalid timeslot format. Please use either `HH:MM` or `DD/MM HH:MM`.", ephemeral=True)
+            month_format = "MM/DD" if month_first else "DD/MM"
+            
+            await ctx.respond(
+                f"Invalid timeslot format. Please use either `HH:MM` or `{month_format} HH:MM`. You can leave out the ':' if you want.", 
+                ephemeral=True)
             return
 
         # Create the timeslot dictionary
