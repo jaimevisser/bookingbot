@@ -17,6 +17,7 @@ from discord import Cog, Option, Permissions, User, guild_only, slash_command
 from discord.commands import default_permissions
 
 from bookingbot.settings import Settings
+from bookingbot.timmie import Timmie
 
 _log = logging.getLogger(__name__)
 
@@ -24,20 +25,29 @@ class Commands(Cog):
     
     def __init__(self, bot):
         self.settings = Settings()
-        self.timeslots = Timeslots()
+        self.timmies = Timmie()
+        self.timeslots = Timeslots(self.timmies)
         self.bot = bot
+        
+    guild_ids = [1215223314151374849]
         
     timeslots = discord.SlashCommandGroup(
         name="timeslot",
         description="Timeslot management",
         default_member_permissions=Permissions(administrator=True),
-        guild_ids=[1215223314151374849])
+        guild_ids=guild_ids)
     
     settings = discord.SlashCommandGroup(
         name="set",
         description="User settings",
         default_member_permissions=Permissions(administrator=True),
-        guild_ids=[1215223314151374849])
+        guild_ids=guild_ids)
+    
+    timmies = discord.SlashCommandGroup(
+        name="timmie",
+        description="Timmie management",
+        default_member_permissions=Permissions(administrator=True),
+        guild_ids=guild_ids)
     
     async def autocomplete_timezone(self, ctx: discord.AutocompleteContext):
         return [tz for tz in pytz.all_timezones if ctx.value.lower() in tz.lower()][:25]
@@ -159,7 +169,7 @@ class Commands(Cog):
         self.timeslots.add(timeslot_dict)
 
         # Send a confirmation message
-        await ctx.respond(f"Timeslot added: <t:{int(start_time.timestamp())}:f>.", ephemeral=True)
+        await ctx.respond(f"Timeslot added:\n" + self.render_timeslots([timeslot_dict]), ephemeral=True)
         
     @timeslots.command(name="list")
     async def list_timeslots(self, ctx: discord.ApplicationContext, boa: Option(User) = None):
@@ -201,11 +211,47 @@ class Commands(Cog):
         # Send a confirmation message
         await ctx.respond("Timeslot removed.", ephemeral=True)
         
+    @timmies.command(name="add")
+    async def add_timmie(self, ctx: discord.ApplicationContext, timmie: Option(User, "The timmie to add", required=True)):
+        """Add a timmie for your timeslots."""
+        user_id = ctx.author.id
+        self.timmies.add(timmie.id, user_id)
+        await ctx.respond(f"Timmie <@{timmie.id}> added for <@{user_id}>.", ephemeral=True)
+        
+    @timmies.command(name="remove")
+    async def remove_timmie(self, ctx: discord.ApplicationContext, timmie: Option(User, "The timmie to remove", required=True)):
+        """Remove a timmie for your timeslots."""
+        user_id = ctx.author.id
+        self.timmies.remove(timmie.id, user_id)
+        await ctx.respond(f"Timmie <@{timmie.id}> removed for <@{user_id}>.", ephemeral=True)
+        
+    @timmies.command(name="list")
+    async def list_timmies(self, ctx: discord.ApplicationContext, boa: Option(User, "The BOA to list timmies for", required=False) = None):
+        """List all timmies. If a user is provided, list their timmies."""
+        if boa is not None:
+            all_timmies = self.timmies.list_timmies(boa.id)
+        else:
+            all_timmies = self.timmies.list_timmies(ctx.author.id)
+        if not all_timmies:
+            await ctx.respond("You don't have any timmies.", ephemeral=True)
+            return
+        message = "Timmies:\n" + "\n".join([f"- <@{timmie}>" for timmie in all_timmies])
+        await ctx.respond(message, ephemeral=True)
+        
     @slash_command(name="timeslots")
     async def timeslots_open(self, ctx: discord.ApplicationContext):
-        """List all open timeslots."""
+        """List all timeslots that are open for you."""
+        # Get the user ID
+        user_id = ctx.author.id
+        
+        # If the user already has a booking, don't allow them to book another timeslot
+        user_id = ctx.author.id
+        if self.timeslots.has_booking(user_id):
+            await ctx.respond("You already have a booking.", ephemeral=True)
+            return
+        
         # Get all timeslots
-        all_timeslots = self.timeslots.list_open()
+        all_timeslots = self.timeslots.list_unbooked_for_timmie(user_id)
         # Sort timeslots by time ascending
         all_timeslots.sort(key=lambda x: x["time"])
         # If there are no timeslots, send a message

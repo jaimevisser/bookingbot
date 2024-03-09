@@ -1,6 +1,8 @@
 from bookingbot import Store
 import datetime
 
+from bookingbot.timmie import Timmie
+
 
 class Timeslots:
     # This class is responsible for managing timeslots
@@ -9,8 +11,9 @@ class Timeslots:
     # Booking dict means that a user has booked the timeslot, it's not set if the timeslot is open
     # Booking dict format: {"user_id": "1234567890", "meta_username": "meta", "got_username": "got"}
     
-    def __init__(self):
+    def __init__(self, timmies: Timmie):
         self.timeslots = Store[list](f"data/timeslots.json", [])
+        self.timmies = timmies
         # Initialize any necessary attributes here
         pass
 
@@ -25,13 +28,9 @@ class Timeslots:
         
         return [timeslot for timeslot in self.timeslots.data if timeslot["instructor"] == instructor]
     
-    def list_open(self):
-        # Return all timeslots that are open for booking.
-        return [timeslot for timeslot in self.timeslots.data if not timeslot.get("booking")]
-    
-    def list_unbooked(self):
-        # Return all timeslots that are open for booking.
-        return [timeslot for timeslot in self.timeslots.data if not timeslot.get("booking")]
+    def list_unbooked_for_timmie(self, timmie_id: str):
+        timmie_instructors = self.timmies.list_instructors(timmie_id)
+        return [timeslot for timeslot in self.timeslots.data if not timeslot.get("booking") and timeslot["instructor"] in timmie_instructors]
     
     def remove(self, timeslot_id: str):
         self.timeslots.data = [timeslot for timeslot in self.timeslots.data if timeslot["id"] != timeslot_id]
@@ -49,6 +48,7 @@ class Timeslots:
             if timeslot["id"] == timeslot_id and not timeslot.get("booking"):
                 timeslot["booking"] = booking_data
                 self.timeslots.sync()
+                self.timmies.clear(booking_data["user_id"])
                 return timeslot
         return False
     

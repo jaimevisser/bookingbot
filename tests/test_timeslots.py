@@ -5,7 +5,8 @@ import time
 
 class TimeslotsTests(unittest.TestCase):
     def setUp(self):
-        self.timeslots = Timeslots()
+        self.timmies = MagicMock()
+        self.timeslots = Timeslots(self.timmies)
         self.timeslots.timeslots = MagicMock()
         self.timeslots.timeslots.data = []
         self.future_time = int(time.time()) + 3600
@@ -24,22 +25,6 @@ class TimeslotsTests(unittest.TestCase):
         self.timeslots.add(timeslot2)
         timeslots = self.timeslots.list()
         self.assertEqual(len(timeslots), 2)
-
-    def test_list_open_timeslots(self):
-        timeslot1 = {"id": "1", "time": self.future_time, "instructor": "1234567890", "booking": {}}
-        timeslot2 = {"id": "2", "time": self.future_time, "instructor": "1234567890", "booking": {"user_id": "1234567890"}}
-        self.timeslots.add(timeslot1)
-        self.timeslots.add(timeslot2)
-        open_timeslots = self.timeslots.list_open()
-        self.assertEqual(len(open_timeslots), 1)
-
-    def test_list_unbooked_timeslots(self):
-        timeslot1 = {"id": "1", "time": self.future_time, "instructor": "1234567890", "booking": {}}
-        timeslot2 = {"id": "2", "time": self.future_time, "instructor": "1234567890", "booking": {"user_id": "1234567890"}}
-        self.timeslots.add(timeslot1)
-        self.timeslots.add(timeslot2)
-        unbooked_timeslots = self.timeslots.list_unbooked()
-        self.assertEqual(len(unbooked_timeslots), 1)
 
     def test_remove_timeslot(self):
         timeslot = {"id": "1", "time": self.future_time, "instructor": "1234567890", "booking": {}}
