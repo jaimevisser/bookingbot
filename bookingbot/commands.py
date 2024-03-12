@@ -53,7 +53,7 @@ class Commands(Cog):
         return [tz for tz in pytz.all_timezones if ctx.value.lower() in tz.lower()][:25]
     
     async def autocomplete_locales(self, ctx: discord.AutocompleteContext):
-        return [Locale("en").territories[locale] for locale in Locale("en").territories if ctx.value.lower() in Locale("en").territories[locale].lower()][:25]
+        return [Locale("en").territories[locale] for locale in Locale("en").territories if len(locale) == 2 and ctx.value.lower() in Locale("en").territories[locale].lower()][:25]
     
     def generate_identifier(self):
         """Generate a random 5 character identifier excluding 'o', 'O', and '0'."""
@@ -101,6 +101,13 @@ class Commands(Cog):
 
         # Get the selected locale
         selected_locale = self.get_territory_code(locale)
+        
+        # Check if it's possible to make a locale using "en" and the selected territory code
+        try:
+            Locale("en", selected_locale)
+        except Exception as e:
+            await ctx.respond(f"Failed to set your locale to {selected_locale}.", ephemeral=True)
+            return
 
         # Save the locale for the user
         self.settings.set_locale(user_id, selected_locale)
