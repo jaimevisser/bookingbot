@@ -157,11 +157,14 @@ class Commands(Cog):
                 if start_time < current_time:
                     # Add a year if the date is before today
                     start_time = start_time.replace(year=current_time.year + 1)
-        except (ValueError, IndexError):
+        except (Exception):
             month_format = "MM/DD" if month_first else "DD/MM"
             
             await ctx.respond(
-                f"Invalid timeslot format. Please use either `HH:MM` or `{month_format} HH:MM`. You can leave out the ':' if you want.", 
+                f"Invalid timeslot format. Please use either `HH:MM` or `{month_format} HH:MM`. You can leave out the `:` if you want. The date can be separated by either the `/` or `-`.\n\n"+
+                f"If you want to use `MM/DD` instead of `DD/MM` make sure to use the `/set locale` command first.\n\n"+
+                f"Example for the next 24 hours: `/timeslot add 15:00` or `/timeslot add 1500`\n"+
+                f"Example for a specific date: `/timeslot add 03/02 15:00` or `/timeslot add 3-2 1500`", 
                 ephemeral=True)
             return
 
